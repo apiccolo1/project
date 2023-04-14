@@ -1,3 +1,5 @@
+# This scrapes from Yahoo Finance, saves to CSV, uploads CSV on to PostgreSQL server
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 import time
