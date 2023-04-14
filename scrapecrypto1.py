@@ -62,14 +62,14 @@ for row in rows:
         crypdata.append(row_data)
 
 
-print(crypdata)
+print("1")
 
-time.sleep(5)
+time.sleep(2)
 ###############################SCRAPE TABLE 2#############################################
 nextbutton = driver.find_element(by=By.XPATH, value='//*[@id="scr-res-table"]/div[2]/button[3]')
 nextbutton.click()
 
-time.sleep(8)
+time.sleep(5)
 
 crypdata1 = []
 table1 = driver.find_element(By.CSS_SELECTOR, '#scr-res-table')
@@ -94,15 +94,15 @@ for row in rows1:
         # append the row data to the list of data
         crypdata1.append(row_data1)
 
-print(crypdata1)
+print("2")
 
-time.sleep(5)
+time.sleep(2)
 
 ###############################SCRAPE TABLE 3#############################################
 nextbutton = driver.find_element(by=By.XPATH, value='//*[@id="scr-res-table"]/div[2]/button[3]')
 nextbutton.click()
 
-time.sleep(8)
+time.sleep(5)
 
 crypdata2 = []
 table2 = driver.find_element(By.CSS_SELECTOR, '#scr-res-table')
@@ -127,16 +127,16 @@ for row in rows2:
         # append the row data to the list of data
         crypdata2.append(row_data2)
 
-print(crypdata2)
+print("3")
 
-time.sleep(5)
+time.sleep(2)
 
 
 ###############################SCRAPE TABLE 4 #############################################
 nextbutton = driver.find_element(by=By.XPATH, value='//*[@id="scr-res-table"]/div[2]/button[3]')
 nextbutton.click()
 
-time.sleep(8)
+time.sleep(5)
 
 crypdata3 = []
 table3 = driver.find_element(By.CSS_SELECTOR, '#scr-res-table')
@@ -161,9 +161,9 @@ for row in rows3:
         # append the row data to the list of data
         crypdata3.append(row_data3)
 
-print(crypdata3)
+print("4")
 
-time.sleep(5)
+time.sleep(2)
 
 
 
@@ -172,7 +172,7 @@ time.sleep(5)
 nextbutton = driver.find_element(by=By.XPATH, value='//*[@id="scr-res-table"]/div[2]/button[3]')
 nextbutton.click()
 
-time.sleep(8)
+time.sleep(5)
 
 crypdata4 = []
 table4 = driver.find_element(By.CSS_SELECTOR, '#scr-res-table')
@@ -197,9 +197,9 @@ for row in rows4:
         # append the row data to the list of data
         crypdata4.append(row_data4)
 
-print(crypdata4)
+print("5")
 
-time.sleep(5)
+time.sleep(3)
 
 # print the data
 #print(crypdata)
@@ -207,24 +207,93 @@ time.sleep(5)
 # close the webdriver
 driver.quit()
 
+###############################SAVE TO CSV#############################################
+final = []
+final.append(crypdata)
+final.append(crypdata1)
+final.append(crypdata2)
+final.append(crypdata3)
+final.append(crypdata4)
 
-merged_dict = {}
-merged_dict.update(crypdata)
-merged_dict.update(crypdata1)
-merged_dict.update(crypdata2)
-merged_dict.update(crypdata3)
-merged_dict.update(crypdata4)
+import pandas as pd
 
-final = list(merged_dict)
+# ... existing code to scrape data ...
+
+# combine the data from all tables into a single list
+all_crypdata = crypdata + crypdata1 + crypdata2 + crypdata3 + crypdata4
+
+# create a DataFrame from the list of dictionaries
+df = pd.DataFrame(all_crypdata)
+
+# save the DataFrame to a CSV file
+df.to_csv('crypto_data3.csv', index=False)
+
+print("Saving to data to CSV is complete.")
+
+time.sleep(5)
+
+################################UPLOAD TO SQL############################################
+
+print("Starting to upload CSV to PostgreSQL database.")
 import csv
+import psycopg2
 
-# ... (code to scrape data from website)
+def convert_market_cap(value):
+    if value[-1].lower() == 'b':
+        return int(float(value[:-1]) * 1000000000)
+    elif value[-1].lower() == 'm':
+        return int(float(value[:-1]) * 1000000)
+    else:
+        return int(value.replace(',', ''))
 
-# Create a new CSV file and write the data to it
-with open('crypto_data.csv', 'w', newline='') as file:
-    writer = csv.writer(file)
-    # Write the header row
-    writer.writerow(['Currency', 'Value','Last Price', 'Change', '% Change', 'Market Cap', 'VolumeInCurrency'])
-    # Write the data rows
-    for row in final:
-        writer.writerow(row)
+def convert_volume(value):
+    if value[-1].lower() == 'b':
+        return int(float(value[:-1]) * 1000000000)
+    elif value[-1].lower() == 'm':
+        return int(float(value[:-1]) * 1000000)
+    else:
+        return int(value.replace(',', ''))
+
+# Connect to the database
+conn = psycopg2.connect(
+    host="localhost",
+    database="crypdb1",
+    user="postgres",
+    password="password"
+)
+
+# Open a cursor to perform database operations
+cur = conn.cursor()
+
+cur.execute('''CREATE TABLE IF NOT EXISTS cryptodata.crypto14_4 (
+               id SERIAL PRIMARY KEY,
+               currency TEXT,
+               symbol TEXT,
+               last_price REAL,
+               change REAL,
+               percent_change REAL,
+               market_cap BIGINT,
+               volume BIGINT)''')
+
+# Read data from CSV file
+with open('crypto_data3.csv', 'r') as f:
+    reader = csv.reader(f)
+    next(reader)  # Skip the header row
+    for row in reader:
+        row[2] = float(row[2].replace(',', ''))
+        row[3] = float(row[3].replace(',', ''))
+        row[4] = float(row[4].replace('%', ''))
+        row[5] = convert_market_cap(row[5])
+        row[6] = convert_volume(row[6])
+        cur.execute("INSERT INTO cryptodata.crypto14_4 (currency, symbol, last_price, change, percent_change, market_cap, volume) VALUES (%s, %s, %s, %s, %s, %s, %s)", row[0:7])
+
+
+
+# Commit changes to the database
+conn.commit()
+
+# Close the database connection and cursor
+cur.close()
+conn.close()
+
+print("Upload complete.")
