@@ -1,0 +1,82 @@
+#Splitting DATA
+
+import pandas as pd
+import numpy as np
+
+# remember to change this path if you've saved the data somewhere else
+df=pd.read_csv("MotorPremiums.csv")
+
+# copy the data frame so we've still got the original in case we need it
+df_cleaned = df.copy()
+
+# choose the rows we want to keep
+df_cleaned = df_cleaned[(df_cleaned.LicenceCountry=="UK") & (df_cleaned.Stored!="0")]
+
+# this is needed so the row numbers are still in sequence
+df_cleaned = df_cleaned.reset_index(drop=True)
+
+# define the list of features to keep
+selected_features = ['Age','Gender','Yrs DL','Points','NCD','Engine cc',
+                     'Ins Group','Stored','Car Age','Premium']
+
+# update the data frame
+df_cleaned = df_cleaned[selected_features]
+
+# Map 'Female' and 'Male' F and M
+df_cleaned['Gender'] = df_cleaned['Gender'].replace({'Female':'F','Male':'M'})
+
+# encode variables
+df_cleaned = pd.get_dummies(df_cleaned, prefix_sep='_', drop_first=True)
+
+
+# set features and targets
+targetName="Premium"
+featureNames=df_cleaned.columns[df_cleaned.columns != targetName]
+X = df_cleaned[featureNames]
+y = df_cleaned[targetName]
+
+
+# normalise
+from sklearn.preprocessing import MinMaxScaler
+
+mm_scaler = MinMaxScaler()
+X = pd.DataFrame(mm_scaler.fit_transform(X), columns=X.columns)
+
+-------------------------------------------------------------------------------------------------------------------------
+
+# Train/ test split DATA
+
+
+#test_size is the fraction of the data that will form your test set; random_state initialises the random number generator so if you rerun it the split will be the same (change the number for a different split).
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=402)
+
+X_train
+
+X_train, X_validation, y_train, y_validation = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
+
+
+# make a new model - MLPRegressor is an artificial neural network
+from sklearn.neural_network import MLPRegressor
+mlp_model = MLPRegressor(hidden_layer_sizes=(10), alpha=0.001, batch_size='auto',
+    learning_rate='constant', learning_rate_init=0.01, max_iter=1000, random_state=1)
+
+# train the model on (or fit the model to) our training data
+mlp_model.fit(X_train, y_train)
+
+
+# make some predictions using the model
+# store the predictions in y_pred
+y_pred = mlp_model.predict(X_validation)
+
+# how do the predictions compare to the true values?
+# print mean square error
+from sklearn import metrics
+print(metrics.mean_squared_error(y_validation, y_pred))
+
+# and a scatter plot
+from matplotlib import pyplot as plt
+plt.scatter(y_validation, y_pred)
+plt.xlabel("True Values")
+plt.ylabel("Predictions")
